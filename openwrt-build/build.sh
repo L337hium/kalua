@@ -57,7 +57,7 @@ build_tarball_package()
 	local package_name='kalua-framework'
 	local kalua_unixtime="$( cd kalua; git log -1 --pretty=format:%ct; cd .. )"
 	local package_version="$(( $kalua_unixtime / 3600 ))"
-	local url='https://github.com/bittorf/kalua'
+	local url='https://github.com/L337hium/kalua'
 	local tar_options='--owner=root --group=root'
 	local architecture='all'
 	local file_tarball="${package_name}_${package_version}_${architecture}.ipk"
@@ -453,7 +453,7 @@ check_working_directory()
 		cd openwrt
 
 #		repo='git://github.com/weimarnetz/weimarnetz.git'
-		repo='git://github.com/bittorf/kalua.git'
+		repo='git://github.com/L337hium/kalua.git'
 		git clone "$repo" || return $error
 		KALUA_DIRNAME="$( basename $repo | cut -d'.' -f1 )"
 
@@ -1217,6 +1217,19 @@ build_options_set()
 			'noFW')
 				apply_symbol 'CONFIG_PACKAGE_firewall is not set'	# base-system: firewall3 *off*
 				apply_symbol 'CONFIG_DEFAULT_firewall is not set'	# needed?
+			;;
+			'DCF77')
+				apply_symbol 'CONFIG_PACKAGE_kmod-usb-core=y'		# 
+				apply_symbol 'CONFIG_PACKAGE_kmod-usb-serial=y'		# ...
+				apply_symbol 'CONFIG_PACKAGE_kmod-usb-ohci=y'		#
+				apply_symbol 'CONFIG_PACKAGE_kmod-usb2=y'		#
+				apply_symbol 'CONFIG_PACKAGE_kmod-usb-serial-ftdi=y'	#
+				apply_symbol 'CONFIG_PACKAGE_usbutils=y'		#
+				apply_symbol 'CONFIG_PACKAGE_libftdi=y'			#
+				apply_symbol 'CONFIG_PACKAGE_ntpd=y'			#
+				apply_symbol 'CONFIG_PACKAGE_ntpclient=y'		#
+				apply_symbol 'CONFIG_PACKAGE_ntpdate=y'			#
+				apply_symbol 'CONFiG_PACKAGE_ntp-utils=y'		#
 			;;
 			# help/usage-function
 			'list')
