@@ -135,6 +135,9 @@ boot()
 		_http redirect '302' 'cgi-bin-status.sh' 'html_only' >'/www/cgi-bin-status.html'
 	}
 
+	# disable OLSRd1 - IPv6
+	[ -e '/etc/config/olsrd6' ] && uci set olsrd6.@olsrd[0].disabled=1
+
 	# mark end of startup-sequence
 	grep -q "ENDBOOT" '/etc/init.d/done' || sed -i 's|^}|\n	touch /tmp/ENDBOOT\n}|' '/etc/init.d/done'
 
@@ -406,11 +409,11 @@ boot()
 
 	# see /usr/sbin/cron.reverse_ssh_tunnel
 	case "$CONFIG_PROFILE" in
-		berlinle*|extrawatt*|shankar*|fparkssee*|limona*|marinapark*|versiliaje*|cupandcoffee*|hotello-B01*)
+		extrawatt*|shankar*|fparkssee*|limona*|marinapark*|versiliaje*|cupandcoffee*)
 			uci set system.@monitoring[0].maintenance='reverse_sshtunnel'
 
 			case "$NODENUMER-$CONFIG_PROFILE" in
-				3-berlinle*)
+				DISABLED-3-berlinle*)
 					uci set system.@monitoring[0].maintenance_force='1'
 				;;
 			esac
