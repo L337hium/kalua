@@ -868,7 +868,31 @@ apply_symbol()
 					# http://stackoverflow.com/questions/15934101/applying-a-diff-file-with-git
 					git rebase --abort
 					git am --abort
-					git am --signoff <"$file" || log "$funcname() ERROR during 'git am <$file'"
+					git am --signoff <"$file" || {
+						log "$funcname() ERROR during 'git am <$file'"
+
+						for dir in feeds/*; do {
+							[ -d "$dir" ] || continue
+
+							log "$funcname() trying in '$dir' (now '$( pwd )')"
+							cd $dir
+
+							git rebase --abort
+							git am --abort
+
+							if git am --signoff <"../../$file"; then
+								log "$funcname() ERROR during 'git am <$file'"
+								cd ..
+								cd ..
+							else
+								log "$funcname() OK - apply for '$file' worked"
+
+								cd ..
+								cd ..
+								break
+							fi
+						} done
+					}
 				} done
 			} done
 
