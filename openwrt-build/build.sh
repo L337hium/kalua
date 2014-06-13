@@ -1229,7 +1229,7 @@ build_options_set()
 				apply_symbol 'CONFIG_PACKAGE_ntpd=y'			#
 				apply_symbol 'CONFIG_PACKAGE_ntpclient=y'		#
 				apply_symbol 'CONFIG_PACKAGE_ntpdate=y'			#
-				apply_symbol 'CONFiG_PACKAGE_ntp-utils=y'		#
+				apply_symbol 'CONFIG_PACKAGE_ntp-utils=y'		#
 			;;
 			# help/usage-function
 			'list')
