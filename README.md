@@ -222,5 +222,8 @@ mail.@smtp[0].server			- hostname
 mail.@smtp[0].port			- integer
 mail.@smtp[0].name			- string: e.g. realname
 mail.@smtp[0].mail			- mailadresse
-mail.@smtp[0].auth=-P 222 bastian@bwireless.mooo.com:kalua_mail
+mail.@smtp[0].auth			- string: e.g. -P 222 user@domain.tld:myfolder
 
+sms.@sms[0].admin			- string: phonenumber
+
+wireless.radio0.cronactive		- string: '18:00 - 08:00'

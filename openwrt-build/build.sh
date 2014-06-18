@@ -275,12 +275,15 @@ target_hardware_set()
 			FILENAME_SYSUPGRADE='openwrt-ar71xx-generic-tl-wr1043nd-v1-squashfs-sysupgrade.bin'
 			FILENAME_FACTORY='openwrt-ar71xx-generic-tl-wr1043nd-v1-squashfs-factory.bin'
 		;;
-		'Ubiquiti Nanostation2')
+		'Ubiquiti Nanostation2'|'Ubiquiti Picostation2')
+			# Atheros MIPS 4Kc @ 180 MHz / ath5k / 32 mb RAM / 8 mb FLASH
+			# the other one is: Picostation M2 (HP) = MIPS 24KC / 400 MHz
 			TARGET_SYMBOL='CONFIG_TARGET_atheros_Default=y'
 			FILENAME_SYSUPGRADE='openwrt-atheros-combined.squashfs.img'
-			FILENAME_FACTORY='openwrt-atheros-ubnt2-squashfs.bin'
+			FILENAME_FACTORY='openwrt-atheros-ubnt2-pico2-squashfs.bin'
 		;;
-		'Ubiquiti Nanostation5')
+		'Ubiquiti Nanostation5'|'Ubiquiti Picostation5')
+			# Atheros MIPS 4Kc / ath5k / 32 mb RAM / 8 mb FLASH
 			TARGET_SYMBOL='CONFIG_TARGET_atheros_Default=y'
 			FILENAME_SYSUPGRADE='openwrt-atheros-combined.squashfs.img'
 			FILENAME_FACTORY='openwrt-atheros-ubnt5-squashfs.bin'
@@ -874,7 +877,13 @@ apply_symbol()
 						for dir in feeds/*; do {
 							[ -d "$dir" ] || continue
 
-							log "$funcname() trying in '$dir' (now '$( pwd )')"
+							case "$dir" in
+								*'.tmp')
+									continue
+								;;
+							esac
+
+							log "$funcname() trying in dir '$dir' (now: '$( pwd )')"
 							cd $dir
 							log "$funcname() changed dir to '$( pwd )'"
 
@@ -883,15 +892,17 @@ apply_symbol()
 
 							log "$funcname() exec: git am --signoff <../../$file"
 							if git am --signoff <"../../$file"; then
+								log "$funcname() OK - apply for '$file' worked"
 								log "$funcname() ERROR during 'git am <$file'"
 								cd ..
 								cd ..
+
+								break
 							else
-								log "$funcname() OK - apply for '$file' worked"
+								log "$funcname() ERROR during 'git am <$file'"
 
 								cd ..
 								cd ..
-								break
 							fi
 						} done
 					}
@@ -1127,13 +1138,18 @@ build_options_set()
 				apply_symbol "CONFIG_PACKAGE_kmod-${kmod}=y"		# kernel-modules: wireless:
 			;;
 			'Arduino')
+				$funcname subcall 'USBserial'
 				apply_symbol 'CONFIG_PACKAGE_kmod-usb-acm=y'		# kernel-modules: USB-support
+			;;
+			'USBserial')
 				apply_symbol 'CONFIG_PACKAGE_kmod-usb-serial=y'
 				apply_symbol 'CONFIG_PACKAGE_kmod-usb-serial-ftdi=y'
 			;;
 			'NTPfull')
 				apply_symbol 'CONFIG_PACKAGE_ntp-utils=y'	# network -> time_syncronisation
 				apply_symbol 'CONFIG_PACKAGE_ntpd=y'		# network -> time_syncronisation
+				apply_symbol 'CONFIG_PACKAGE_ntpdate=y'
+				apply_symbol 'CONFIG_PACKAGE_ntpclient=y'
 			;;
 			'BigBrother')
 				$funcname subcall 'USBcam'
@@ -1184,6 +1200,10 @@ build_options_set()
 			;;
 			'OLSRd2')
 				apply_symbol 'CONFIG_PACKAGE_olsrd2-git=y'		# network:
+			;;
+			'DCF77')
+				$funcname subcall 'USBserial'
+				$funcname subcall 'NTPfull'
 			;;
 			'BatmanAdv')
 				apply_symbol 'CONFIG_PACKAGE_kmod-batman-adv=y'		# kernel-modules: support: batman-adv

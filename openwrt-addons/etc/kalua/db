@@ -3,19 +3,28 @@
 _db_check()
 {
 	local funcname='db_check'
+	local statfile="/tmp/$funcname"
 	local file line i
 
+	_db lock now "$funcname" || return 1
+
 	for file in /tmp/DB/USER/device/rows /tmp/DB/USER/device/stats /tmp/DB/USER/login/rows /tmp/DB/USER/profile/rows; do {
-		_log do $funcname daemon info "eval each line in '$file'"
+		_log do $funcname daemon info "eval each line in '$file', check '$statfile' after errors"
 
 		i=0
 		while read line; do {
 			i=$(( $i + 1 ))
+			echo "file: $file lineno: $i line: $line" >"$statfile"
 			eval $line
 		} done <"$file"
 
 		_log do $funcname daemon info "[OK] file '$file' / $i lines"
 	} done
+
+	_db lock free "$funcname"
+	rm "$statfile"
+
+	return 0
 }
 
 _db_lock()
@@ -42,10 +51,24 @@ _db_lock()
 				rm -fR "$dir"
 			fi
 		;;
-		now|*)
+		forever|now|*)
+			case "${mode}-${context}" in
+				'forever-locked_forever'*)
+					echo "$context" >"$file"
+					return 1
+				;;
+			esac
+
 			while ! mkdir "$dir"; do {
 				read reason <"$file"
 				_log do $funcname daemon "$prio" "db is locked, task '$context' must wait for '${reason:-unknown_reason}'"
+
+				case "$reason" in
+					'locked_forever'*)
+						return 1
+					;;
+				esac
+
 				prio='debug'
 				sleep 33
 			} done
@@ -53,6 +76,8 @@ _db_lock()
 			echo "${context}_$( date )" >"$file"
 		;;
 	esac
+
+	return 0
 }
 
 _db_purge()
@@ -60,7 +85,7 @@ _db_purge()
 	local funcname="db_purge"
 	local obj
 
-	_db lock now "$funcname"
+	_db lock now "$funcname" || return 1
 
 	for obj in "/tmp/DB" "/www/cgi-bin/db_backup.tgz"; do {
 		_log do $funcname daemon info "[OK] removing '$obj'"
@@ -109,7 +134,18 @@ _db_backup()		# fixme! automatically call this after <prio> changes
 		;;
 	esac
 
-	_db lock now "$funcname"
+	# short check if locking works, otherwise 'db check' fails with sms
+	_db lock now "$funcname" || return 1
+	_db lock free "$funcname"
+
+	( _db check ) || {
+		# forever!
+		_db lock forever "locked_forever: DB broken - needs manual fixing"
+		_log do $funcname daemon sms "abort, db_check() fails"
+		return 1
+	}
+
+	_db lock now "$funcname" || return 1
 
 	if tar czf "$file_temp" "$dir" 2>/dev/null ; then
 		_db lock free "$funcname"
@@ -200,7 +236,7 @@ _db_restore()		# is called during boot: see /etc/init.d/S70prepare_fff+
 	local funcname="db_restore"
 	local file="/www/cgi-bin/db_backup.tgz"
 
-	_db lock now "$funcname"
+	_db lock now "$funcname" || return 1
 
 	if [ -e "$file" ]; then
 
@@ -213,7 +249,8 @@ _db_restore()		# is called during boot: see /etc/init.d/S70prepare_fff+
 			if tar -C / -xzf "$file" ; then
 				_log do $funcname daemon info "[OK] untar"
 
-				grep -q "''" '/tmp/DB/USER/device/rows' && {
+				# match for a single char inclosed in marks, e.g. A=''1''
+				grep -qE "''[^']''" '/tmp/DB/USER/device/rows' && {
 					# fixed in 157d75a777bd1dcd573aac91cd281260abdb89c8 / 2014jun12
 					_log do $funcname daemon alert "repairing DB with doubled quotation marks"
 					# no action: A='value'
@@ -245,9 +282,13 @@ _db_restore()		# is called during boot: see /etc/init.d/S70prepare_fff+
 				_log do $funcname daemon info "[OK] copy size: $( _file size '/tmp/USERDB_COPY.cgi.gz' ) bytes"
 			else
 				_log do $funcname daemon alert "[ERR] untar of '$file' went wrong - rescheduling"
-				touch /tmp/FREE
-				echo >>$SCHEDULER 'rm /tmp/FREE'
-				echo >>$SCHEDULER '_db restore'
+				touch '/tmp/FREE'
+
+				# give up after some time
+				[ $( _system uptime min ) -lt 60 ] && {
+					echo >>$SCHEDULER 'rm /tmp/FREE'
+					echo >>$SCHEDULER '_db restore'
+				}
 			fi
 		fi
 	else
@@ -369,7 +410,7 @@ _db_user()			# poormens_db: each line has: ID=<integer>;A="";B="";C="";D="";...;
 			esac
 		;;
 		index_gen)
-			_db lock now "$ACTION $@"
+			_db lock now "$ACTION $@" || return 1
 
 			local INDEX_PRODUCTION="$DIR/meta_index"
 			local INDEX="$INDEX_PRODUCTION.temp"
@@ -621,12 +662,12 @@ _db_user()			# poormens_db: each line has: ID=<integer>;A="";B="";C="";D="";...;
 			sed -n "${ID}{${REWRITE_VARS}p;q}" "$DIR/rows"		# fixme! return ERROR on nonexisting line
 		;;
 		del)
-			_db lock now "$ACTION"
+			_db lock now "$ACTION" || return 1
 			sed -i "${ID}s/^.*/#/" "$DIR/rows"
 			_db lock free "$ACTION"
 		;;
 		add|update)				# fixme! if "add" is used, ID=<integer> is not in line?
-			_db lock now "$ACTION"
+			_db lock now "$ACTION" || return 1
 
 			local USERNAME
 
